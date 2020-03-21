@@ -2,8 +2,9 @@
   "name": "wiki",
   "version": "1.0.0",
   "description": "wikipedia",
-  "main": "index.js",
+  "main": "index.html",
   "scripts": {
+    "start": "serve ./",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
