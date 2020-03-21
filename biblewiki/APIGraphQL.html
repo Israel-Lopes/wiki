@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Wiki APIGraphQL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" media="screen" href="main.css" />
+    <script src="main.js"></script>
+</head>
+<body>
+    <h1>API GraphQL</h1>
+    <p><b>Instalar dependencias:</b> express, express-graphql, graphql, knex, mysql, graphql-tools.
+      <br>
+      <b>>>  Npm install</b> (dependencia) --save
+    </p>
+    <p>Criar pasta <b>src</b>, entrar na pasta...
+      <br>
+      <b>>>  knex init</b>
+    </p>
+    <b>Dentro do arquivo knexfile, adicionar as configurações:</b>
+    <br>
+      <pre>
+          client: 'postgresql',
+          connection: {
+            database: 'my_db',
+            user:     'username',
+            password: 'password'
+       <br>
+       Remover código e deixar apenas isto:
+       module.exports = {
+          client: 'mysql',
+          connection: {
+            database: 'graphql',
+            user:     'root',
+            password: 'root'
+          },
+          pool: {
+            min: 2,
+            max: 10
+          },
+          migrations: {
+            tableName: 'knex_migrations'
+          }
+       };  
+      </pre>
+    <p>
+      <b>Criar Migration, dentro de src:</b>
+      <br>
+      >>  knex migrate:make create_table_users
+    </p>
+    <b>Fazer alterações no arquivo ‘JS’ dentro da pasta /migrations</b>
+    <br>
+    <pre>
+        exports.up = function(knex) {
+          return knex.schema.createTable('users', table =>{
+              table.increments('id').primary()
+              table.string('name', 80).notNullable()
+              table.string('email', 80).notNullable()
+              table.string('password', 80).notNullable()
+          })
+         };
+
+         exports.down = function(knex) {
+          return knex.schema.dropTable('users')
+         };
+    </pre>
+   <p>
+    <b>
+        No terminal, para testar a migration, ainda dentro da pasta /src/migration:<br/>
+    </b>
+    >>  knex migrate:latest
+   </p>
+   <p>
+      <b>Opcional:</b> Criar arquivo .env na pasta raiz dentro de /SRC para não persistir a senha no git. <br>
+      Criar .gitignore ignorar os arquivos .env e node_modules <br>
+      .gitignore fica fora de SRC
+      <p>Dentro do arquivo <b>.env</b> adicionar</p> 
+   </p>
+   <pre>
+      module.exports = {
+        password: 'root'
+    }
+   </pre>
+   <p> Dentro do arquivo <b> Dentro do arquivo knexfile.js</b> adicionar:</p> 
+    <pre>
+      const { password } = require('./.env')
+
+      module.exports = {
+          client: 'mysql',
+          connection: {
+            database: 'graphql',
+            user:     'root',
+            password
+          },
+    </pre>
+    
+    <p>
+     <b> Dentro da pasta /SRC</b> criar pasta /config. <br>
+      Dentro de /config criar arquivo database.js <br>
+      <b>Inserir</b>
+    </p>
+    <pre>
+        const knexfile = require('../knexfile')
+        const knex = require('knex')(knexfile)
+        module.exports = knex
+         
+        knex('users').insert({
+           name: 'Teste',
+           email: 'teste@teste.com.br',
+           password: 'teste'
+        }).then(data => console.log(data))
+         
+        knex('users').then(resultado => console.log(resultado))
+    </pre>
+    <p>
+        No terminal <br>
+        <b>>>  node src/config/database.js</b> <br>
+        <pre>
+            << [ RowDataPacket {
+              id: 1,
+              name: 'Teste',
+              email: 'teste@teste.com.br',
+              password: 'teste' },
+            RowDataPacket {
+              id: 2,
+              name: 'Teste',
+              email: 'teste@teste.com.br',
+              password: 'teste' },
+            RowDataPacket {
+              id: 3,
+              name: 'Teste',
+              email: 'teste@teste.com.br',
+              password: 'teste' } ]
+        </pre>
+    </p>
+    <p>
+      <b>Criar pasta</b> /api dentro de /src <br>
+      Dentro de /api criar arquivo resolvers.js <br>
+      src/api/resolvers.js <br>
+    </p>
+    <p><b>Dentro do arquivo</b> resolvers.js, inserir:
+    <pre>
+        const db = require('../config/database')
+     
+        module.exports = {
+          
+           Query: {
+               async getUser(_, { id }) {
+                   return await db('users').where({ id }).first()
+               },
+               async getUsers() {
+                   return await db('users')
+               }
+           },
+           Mutation: {
+               async createUser (_, { input }) {
+                   const result = await db('users').insert({
+                       name: input.name,
+                       email: input.email,
+                       password: input.password
+                   })
+         
+                   const id = result[0]
+                   return await db('users').where({ id }).first()
+               }
+           }
+        }
+    </pre>
+  </p> 
+  <p>
+      <b>Dentro de</b> /api criar arquivo <b>schema.js</b> <br>
+      src/api/schema.js <br>
+      Inserir dentro de <b>schema.js</b> <br>
+      <pre>
+          const resolvers = require('./resolvers')
+          const { makeExecutableSchema } = require('graphql-tools')
+           
+          const usersAttribs = `
+             id: ID
+             name: String!
+             email: String!
+             password: String!
+          `
+           
+          const typeDefs = `
+             type User {
+                ${ usersAttribs }
+             }
+           
+             type Query {
+                 getUser(id: ID!): User
+                 getUsers: [user]
+             }
+           
+             input UserInput {
+                 ${ usersAttribs }
+             }
+           
+             type Mutation {
+                 createUser(input: UserInput): User
+             }
+          `
+          module.exports = makeExecutableSchema({
+             typeDefs,
+             resolvers
+          })
+      </pre>
+  </p>
+    
+    
+    
+    <p>
+        Criar arquivo <b>server.js</b> dentro de /src <br>
+        <b>Inserir</b>
+        <pre>
+            const express = require('express')
+            const graphqlHTTP = require('express-graphql')
+            const { buildSchema } = require('graphql')
+            const schema = require('./api/schema')
+             
+            const app = express()
+            app.use('/api', graphqlHTTP({
+               schema,
+               graphiql: true
+            }))
+             
+            app.listen(4000, () => console.log('Executando...'))
+        </pre>
+    </p>
+    
+    Para rodar a aplicação: <br>
+    Rodar dentro da pasta /src <br>
+    <b>>>  node server.js</b>
+    <br>
+    
+</body>
+</html>
